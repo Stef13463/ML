@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
 import scipy.io as sio
 import numpy as np
 import math
@@ -72,8 +73,8 @@ class RidgeRegression(Regression):
     def computeError(self, y_stern):
         y_test = self.raw_data["y_test"][0]
         self.error = []
-        for i in range(len(y_star)):
-            self.error.append(math.fabs(y_stern[i]-y_test[i]))
+        for i in range(len(y_stern)):
+            self.error.append(math.fabs(y_stern[i] - y_test[i]))
         mean_error = np.mean(self.error)
         return [self.error, mean_error]
 
@@ -81,36 +82,60 @@ class RidgeRegression(Regression):
         sorted_error = np.sort(error)
         sorted_error = sorted_error[::-1]
         plt.plot(sorted_error, "b.")
+        plt.xlabel("Sorted Error")
+        plt.ylabel("Error |y* - y_test| [°T]")
         plt.show()
-
 
     def plotHeatMap(self):
         test_x = self.raw_data["x_test"]
         latitude = []
         longitude = []
         for i in range(len(test_x)):
-            latitude.append(test_x[i][1])
-            longitude.append(test_x[i][2])
-        matrix = []
-        row = []
-        i = 0
-        j = 0
-        while latitude[i] == latitude[i-1]:
-            row.append(self.error[i])
-            i = i + 1
-        matrix.append(row)
+            latitude.append(round(test_x[i][1], 2))
+            longitude.append(round(test_x[i][2], 2))
 
-        err = self.error
+        d = {"Latitude": latitude, "Longitude": longitude, "Error": self.error}
+        df = pd.DataFrame(data=d)
+        table = df.pivot(index="Longitude", columns="Latitude", values="Error")
+        print(table)
+        sns.set_theme()
+        ax = sns.heatmap(table)
+        ax.invert_yaxis()
+        ax.collections[0].colorbar.set_label("Error |y* - y_test| [°T]")
+        plt.xlabel("Latitude")
+        plt.ylabel("Longitude")
+        plt.show()
 
 
-
-if __name__ == "__main__":
+def findOptimalLambda():
     r = RidgeRegression(4)
     data = r.importData("data.mat")
     t_data = r.generateTrainingData(data[0], data[1])
-    w = r.calculateWeights(t_data[0], t_data[1], 0.1)
-    y_star = r.testRegression(w)
-    err = r.computeError(y_star)
+
+    bestMean = 1000
+    best_i = -1
+    i = 0
+
+    while i < 10:
+        w = r.calculateWeights(t_data[0], t_data[1], i)
+        y_star = r.testRegression(w)
+        err = r.computeError(y_star)
+        print(i, end=" ")
+        print(err[1])
+        if err[1] < bestMean:
+            bestMean = err[1]
+            best_i = i
+        i = i + 0.01
+    return [best_i, bestMean]
+
+
+if __name__ == "__main__":
+    print(findOptimalLambda())
+    # r = RidgeRegression(4)
+    # data = r.importData("data.mat")
+    # t_data = r.generateTrainingData(data[0], data[1])
+    # w = r.calculateWeights(t_data[0], t_data[1], 10)
+    # y_star = r.testRegression(w)
+    # err = r.computeError(y_star)
     # r.plotError(err[0])
-    r.plotHeatMap()
-    print(err)
+    # r.plotHeatMap()
